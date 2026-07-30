@@ -1,0 +1,6 @@
+{
+  "name": "Controle Financeiro",
+  "description": "Controle de orçamento mensal com relatórios em PDF, envio por e-mail, leitura de notificações bancárias, dados protegidos e projeção para 6 meses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
