@@ -52,12 +52,12 @@ jobs:
         echo ">>> Projeto Gradle localizado em: $TARGET_DIR"
         cd "$TARGET_DIR"
 
-        # 1. Corrige o import de coroutines no HomeDashboardScreen.kt automaticamente
+        # 1. Corrige o import de coroutines no HomeDashboardScreen.kt
         find . -name "HomeDashboardScreen.kt" -exec sed -i '/import kotlinx.coroutines.launch/!s/package com.example.ui.screens/package com.example.ui.screens\n\nimport kotlinx.coroutines.launch/' {} +
 
-        # 2. Cria arquivos obrigatórios no local correto
-        echo "GEMINI_API_KEY=" > .env
-        echo "GEMINI_API_KEY=" > .env.example
+        # 2. Cria arquivos de segredos com valor preenchido para evitar erro de sintaxe no BuildConfig.java
+        echo "GEMINI_API_KEY=AIzaSyDummyKeyForBuildVerification" > .env
+        echo "GEMINI_API_KEY=AIzaSyDummyKeyForBuildVerification" > .env.example
 
         # 3. Ajusta compileSdk para 36 estável
         if [ -f app/build.gradle.kts ]; then
