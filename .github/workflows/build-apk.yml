@@ -38,15 +38,13 @@ jobs:
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-    - name: Localizar Projeto, Preparar e Compilar APK
+    - name: Localizar Projeto, Corrigir Código e Compilar APK
       run: |
         # Localiza dinamicamente a pasta onde está o settings.gradle.kts
         SETTINGS_PATH=$(find . -name "settings.gradle.kts" -o -name "settings.gradle" | head -n 1)
         
         if [ -z "$SETTINGS_PATH" ]; then
           echo "ERRO CRÍTICO: Nenhum settings.gradle.kts foi encontrado no repositório!"
-          echo "Conteúdo completo:"
-          find .
           exit 1
         fi
 
@@ -54,23 +52,26 @@ jobs:
         echo ">>> Projeto Gradle localizado em: $TARGET_DIR"
         cd "$TARGET_DIR"
 
-        # Cria arquivos obrigatórios no local correto
+        # 1. Corrige o import de coroutines no HomeDashboardScreen.kt automaticamente
+        find . -name "HomeDashboardScreen.kt" -exec sed -i '/import kotlinx.coroutines.launch/!s/package com.example.ui.screens/package com.example.ui.screens\n\nimport kotlinx.coroutines.launch/' {} +
+
+        # 2. Cria arquivos obrigatórios no local correto
         echo "GEMINI_API_KEY=" > .env
         echo "GEMINI_API_KEY=" > .env.example
 
-        # Ajusta compileSdk para 36 estável
+        # 3. Ajusta compileSdk para 36 estável
         if [ -f app/build.gradle.kts ]; then
           sed -i 's/compileSdk { version = release(36) { minorApiLevel = 1 } }/compileSdk = 36/g' app/build.gradle.kts || true
         fi
 
-        # Gera debug.keystore caso não exista
+        # 4. Gera debug.keystore caso não exista
         if [ ! -f debug.keystore ]; then
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         fi
         mkdir -p app
         cp debug.keystore app/debug.keystore || true
 
-        # Executa a compilação no diretório correto do projeto
+        # 5. Executa a compilação do APK
         gradle assembleDebug --stacktrace
 
     - name: Disponibilizar APK para Download
