@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Baixar código do repositório
+    - name: Baixar código
       uses: actions/checkout@v4
 
     - name: Configurar Java JDK 17
@@ -19,24 +19,36 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Configurar Android SDK
-      uses: android-actions/setup-android@v3
+    - name: Aceitar Licenças do Android SDK
+      run: |
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-    - name: Criar arquivos auxiliares (Keystore e .env)
+    - name: Criar arquivos locais necessários
       run: |
         touch .env
+        mkdir -p gradle/wrapper
+        cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+        distributionBase=GRADLE_USER_HOME
+        distributionPath=wrapper/dists
+        distributionUrl=https\://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+        networkTimeout=10000
+        validateDistributionUrl=true
+        zipStoreBase=GRADLE_USER_HOME
+        zipStorePath=wrapper/dists
+        EOF
+
         if [ ! -f debug.keystore ]; then
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         fi
 
-    - name: Baixar e Configurar Gradle
+    - name: Baixar Gradle e Gerar Wrapper
       run: |
-        wget -q https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
-        unzip -q gradle-8.11.1-bin.zip
-        ./gradle-8.11.1/bin/gradle wrapper
+        curl -sL https://services.gradle.org/distributions/gradle-8.11.1-bin.zip -o gradle-bin.zip
+        unzip -q gradle-bin.zip
+        ./gradle-8.11.1/bin/gradle wrapper --gradle-version 8.11.1
         chmod +x gradlew
 
-    - name: Compilar APK Debug
+    - name: Compilar APK
       run: ./gradlew assembleDebug --stacktrace
 
     - name: Disponibilizar APK para Download
