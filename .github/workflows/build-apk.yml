@@ -22,12 +22,18 @@ jobs:
     - name: Configurar Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Configurar Gradle
-      uses: gradle/actions/setup-gradle@v4
-
-    - name: Gerar Gradle Wrapper
+    - name: Criar arquivos auxiliares (Keystore e .env)
       run: |
-        gradle wrapper --gradle-version 8.11.1
+        touch .env
+        if [ ! -f debug.keystore ]; then
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+        fi
+
+    - name: Baixar e Configurar Gradle
+      run: |
+        wget -q https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+        unzip -q gradle-8.11.1-bin.zip
+        ./gradle-8.11.1/bin/gradle wrapper
         chmod +x gradlew
 
     - name: Compilar APK Debug
@@ -35,6 +41,7 @@ jobs:
 
     - name: Disponibilizar APK para Download
       uses: actions/upload-artifact@v4
+      if: success()
       with:
         name: Controle-Financeiro-APK
         path: app/build/outputs/apk/debug/*.apk
