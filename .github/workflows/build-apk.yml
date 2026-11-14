@@ -10,8 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Baixar código
+    - name: Baixar código do repositório
       uses: actions/checkout@v4
+
+    - name: Diagnosticar estrutura de pastas
+      run: |
+        echo "=== Diretório Atual ==="
+        pwd
+        echo "=== Arquivos na Raiz ==="
+        ls -la
+        echo "=== Procurando arquivos de build ==="
+        find . -maxdepth 3 -not -path '*/.*'
 
     - name: Configurar Java JDK 17
       uses: actions/setup-java@v5
@@ -29,35 +38,45 @@ jobs:
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-    - name: Preparar arquivos locais e ambiente
+    - name: Localizar Projeto, Preparar e Compilar APK
       run: |
+        # Localiza dinamicamente a pasta onde está o settings.gradle.kts
+        SETTINGS_PATH=$(find . -name "settings.gradle.kts" -o -name "settings.gradle" | head -n 1)
+        
+        if [ -z "$SETTINGS_PATH" ]; then
+          echo "ERRO CRÍTICO: Nenhum settings.gradle.kts foi encontrado no repositório!"
+          echo "Conteúdo completo:"
+          find .
+          exit 1
+        fi
+
+        TARGET_DIR=$(dirname "$SETTINGS_PATH")
+        echo ">>> Projeto Gradle localizado em: $TARGET_DIR"
+        cd "$TARGET_DIR"
+
+        # Cria arquivos obrigatórios no local correto
         echo "GEMINI_API_KEY=" > .env
         echo "GEMINI_API_KEY=" > .env.example
-        
-        # Ajusta compileSdk para 36 padrao compativel
-        sed -i 's/compileSdk { version = release(36) { minorApiLevel = 1 } }/compileSdk = 36/g' app/build.gradle.kts || true
 
-        mkdir -p gradle/wrapper
-        echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
-        echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
-        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
-        echo "networkTimeout=10000" >> gradle/wrapper/gradle-wrapper.properties
-        echo "validateDistributionUrl=true" >> gradle/wrapper/gradle-wrapper.properties
-        echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
-        echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+        # Ajusta compileSdk para 36 estável
+        if [ -f app/build.gradle.kts ]; then
+          sed -i 's/compileSdk { version = release(36) { minorApiLevel = 1 } }/compileSdk = 36/g' app/build.gradle.kts || true
+        fi
 
+        # Gera debug.keystore caso não exista
         if [ ! -f debug.keystore ]; then
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         fi
+        mkdir -p app
         cp debug.keystore app/debug.keystore || true
 
-    - name: Compilar APK Debug
-      run: gradle assembleDebug --stacktrace
+        # Executa a compilação no diretório correto do projeto
+        gradle assembleDebug --stacktrace
 
     - name: Disponibilizar APK para Download
       uses: actions/upload-artifact@v4
       if: success()
       with:
         name: Controle-Financeiro-APK
-        path: app/build/outputs/apk/debug/*.apk
+        path: "**/app/build/outputs/apk/debug/*.apk"
         retention-days: 30
