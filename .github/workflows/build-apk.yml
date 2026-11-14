@@ -19,38 +19,34 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Configurar Gradle 9.3.1
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: '9.3.1'
+
     - name: Aceitar Licenças do Android SDK
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-    - name: Criar arquivos locais necessários (.env e Keystore)
+    - name: Criar arquivos locais (.env e Keystore)
       run: |
         echo "GEMINI_API_KEY=" > .env
         echo "GEMINI_API_KEY=" > .env.example
         mkdir -p gradle/wrapper
-        cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
-        distributionBase=GRADLE_USER_HOME
-        distributionPath=wrapper/dists
-        distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-bin.zip
-        networkTimeout=10000
-        validateDistributionUrl=true
-        zipStoreBase=GRADLE_USER_HOME
-        zipStorePath=wrapper/dists
-        EOF
+        echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
+        echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
+        echo "networkTimeout=10000" >> gradle/wrapper/gradle-wrapper.properties
+        echo "validateDistributionUrl=true" >> gradle/wrapper/gradle-wrapper.properties
+        echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
+        echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
 
         if [ ! -f debug.keystore ]; then
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         fi
 
-    - name: Baixar Gradle e Gerar Wrapper
-      run: |
-        curl -sL https://services.gradle.org/distributions/gradle-9.3.1-bin.zip -o gradle-bin.zip
-        unzip -q gradle-bin.zip
-        ./gradle-9.3.1/bin/gradle wrapper --gradle-version 9.3.1
-        chmod +x gradlew
-
-    - name: Compilar APK
-      run: ./gradlew assembleDebug --stacktrace
+    - name: Compilar APK Debug
+      run: gradle assembleDebug --stacktrace
 
     - name: Disponibilizar APK para Download
       uses: actions/upload-artifact@v4
